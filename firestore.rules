@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isHighPrivilege() {
+      let u = currentUserDoc();
+      return u.role == 'gs_control' || u.role == 'core_council' || u.gsControl == true;
+    }
+
+    function canEditDept(dept) {
+      let u = currentUserDoc();
+      return isHighPrivilege()
+        || (u.role == 'media' && dept == 'Media')
+        || (u.role == 'operations' && dept == 'Operations');
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (isHighPrivilege() || request.auth.uid == userId);
+    }
+
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && canEditDept(request.resource.data.department);
+      allow update: if isSignedIn()
+        && canEditDept(resource.data.department)
+        && canEditDept(request.resource.data.department);
+      allow delete: if isSignedIn() && canEditDept(resource.data.department);
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isSignedIn() && isHighPrivilege();
+      allow create: if isSignedIn();
+    }
+  }
+}
