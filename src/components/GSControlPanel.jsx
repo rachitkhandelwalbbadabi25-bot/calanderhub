@@ -6,6 +6,7 @@ import {
   DEPARTMENT_META,
   ROLE_LABELS,
 } from '../lib/api';
+import { COUNCIL_ROSTER } from '../lib/roster';
 
 export default function GSControlPanel({ currentUser, events = [] }) {
   const [auditLogs, setAuditLogs] = useState([]);
@@ -112,6 +113,8 @@ export default function GSControlPanel({ currentUser, events = [] }) {
     totalUsers: users.length,
   };
 
+  const activeEmailSet = new Set(users.map((u) => (u.email || '').toLowerCase()));
+
   const actionColors = {
     CREATED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     UPDATED: 'bg-indigo-50 text-indigo-700 border-indigo-200',
@@ -177,7 +180,9 @@ export default function GSControlPanel({ currentUser, events = [] }) {
         <div className="rounded-xl bg-white border border-zinc-200 p-4 border-l-[3px] border-l-indigo-600">
           <span className="text-[11px] font-semibold text-zinc-500">Logged Actions</span>
           <p className="text-2xl font-bold text-zinc-950 mt-1 tabular-nums">{summary.totalAuditEntries}</p>
-          <p className="text-[11px] text-zinc-400 mt-1">{summary.totalUsers} active team IDs</p>
+          <p className="text-[11px] text-zinc-400 mt-1">
+            {summary.totalUsers} / {COUNCIL_ROSTER.length} council IDs active
+          </p>
         </div>
       </div>
 
@@ -259,8 +264,9 @@ export default function GSControlPanel({ currentUser, events = [] }) {
                     </td>
                     <td className="py-2.5 px-4">
                       <span
-                        className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded border ${actionColors[log.action] || 'bg-zinc-100 text-zinc-700 border-zinc-200'
-                          }`}
+                        className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                          actionColors[log.action] || 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                        }`}
                       >
                         {log.action}
                       </span>
@@ -284,12 +290,12 @@ export default function GSControlPanel({ currentUser, events = [] }) {
         </div>
       </div>
 
-      {/* Hierarchy & Permissions Table */}
+      {/* Activated Team Hierarchy & Permissions */}
       <div className="rounded-xl bg-white border border-zinc-200 overflow-hidden">
         <div className="p-4 border-b border-zinc-200">
-          <h3 className="font-display text-sm font-bold text-zinc-950">Team Hierarchy &amp; Permissions</h3>
+          <h3 className="font-display text-sm font-bold text-zinc-950">Activated Accounts &amp; Live Permissions</h3>
           <p className="text-xs text-zinc-500">
-            Core Council and GS Control have all capabilities open. Media &amp; Operations edit only their own track.
+            Adjust roles or GS Control access for members who have signed in.
           </p>
         </div>
 
@@ -298,7 +304,7 @@ export default function GSControlPanel({ currentUser, events = [] }) {
             <thead>
               <tr className="bg-zinc-50 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-200">
                 <th className="py-2.5 px-4">Member</th>
-                <th className="py-2.5 px-4">User ID</th>
+                <th className="py-2.5 px-4">Email ID</th>
                 <th className="py-2.5 px-4">Title</th>
                 <th className="py-2.5 px-4">Hierarchy Role</th>
                 <th className="py-2.5 px-4">GS Control</th>
@@ -318,7 +324,7 @@ export default function GSControlPanel({ currentUser, events = [] }) {
                       <span className="font-semibold text-zinc-900">{u.name}</span>
                     </div>
                   </td>
-                  <td className="py-2.5 px-4 font-mono text-zinc-500">@{u.username}</td>
+                  <td className="py-2.5 px-4 font-mono text-zinc-500">{u.email || u.username}</td>
                   <td className="py-2.5 px-4 text-zinc-600">{u.title}</td>
                   <td className="py-2.5 px-4">
                     <select
@@ -338,16 +344,67 @@ export default function GSControlPanel({ currentUser, events = [] }) {
                       type="button"
                       disabled={updatingUserId === u.id}
                       onClick={() => handleToggleGS(u)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition cursor-pointer ${u.gsControl || u.role === 'gs_control'
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition cursor-pointer ${
+                        u.gsControl || u.role === 'gs_control'
                           ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                           : 'bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-200'
-                        }`}
+                      }`}
                     >
                       {u.gsControl || u.role === 'gs_control' ? 'Enabled' : 'Disabled'}
                     </button>
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Full Pre-Assigned NHRDN 2026 Directory */}
+      <div className="rounded-xl bg-white border border-zinc-200 overflow-hidden">
+        <div className="p-4 border-b border-zinc-200">
+          <h3 className="font-display text-sm font-bold text-zinc-950">
+            NHRDN Mathura Chapter 2026 — Official Pre-Assigned Roster ({COUNCIL_ROSTER.length})
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Every listed member automatically receives their assigned role upon signing in with their Email ID.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 bg-zinc-50 z-10">
+              <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-200">
+                <th className="py-2.5 px-4">Name</th>
+                <th className="py-2.5 px-4">Assigned Email ID</th>
+                <th className="py-2.5 px-4">Council Team</th>
+                <th className="py-2.5 px-4">Role</th>
+                <th className="py-2.5 px-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 text-xs">
+              {COUNCIL_ROSTER.map((m) => {
+                const isActive = activeEmailSet.has(m.email.toLowerCase());
+                return (
+                  <tr key={m.email} className="hover:bg-zinc-50/70">
+                    <td className="py-2 px-4 font-semibold text-zinc-900">{m.name}</td>
+                    <td className="py-2 px-4 font-mono text-[11px] text-zinc-600">{m.email}</td>
+                    <td className="py-2 px-4 text-zinc-600">{m.teamCategory}</td>
+                    <td className="py-2 px-4 text-zinc-700">{m.title}</td>
+                    <td className="py-2 px-4">
+                      <span
+                        className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-zinc-100 text-zinc-500 border-zinc-200'
+                        }`}
+                      >
+                        {isActive ? 'Activated' : 'Ready (Starter Pass)'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

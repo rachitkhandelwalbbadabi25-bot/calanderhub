@@ -2,13 +2,51 @@ import React, { useState } from 'react';
 import { CalendarDays, Lock, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { loginWithId, signUpMember } from '../lib/api';
 import { isFirebaseConfigured } from '../lib/firebase';
+import { COUNCIL_STARTER_PASS } from '../lib/roster';
 
-const DEMO_ACCOUNTS = [
-  { label: "Sushmita Ma'am", role: 'GS Control', username: 'sushmita', pass: 'admin123', dot: 'bg-violet-500' },
-  { label: 'General Secretary', role: 'GS Control', username: 'gs_head', pass: 'gs123', dot: 'bg-indigo-500' },
-  { label: 'Core Council', role: 'Full Power', username: 'core_council', pass: 'core123', dot: 'bg-amber-500' },
-  { label: 'Media Lead', role: 'Media Only', username: 'media_user', pass: 'media123', dot: 'bg-rose-500' },
-  { label: 'Operations Lead', role: 'Tech Only', username: 'ops_user', pass: 'ops123', dot: 'bg-sky-500' },
+const QUICK_ACCOUNTS = [
+  {
+    label: 'Nrisingha Das (GS)',
+    role: 'GS Control',
+    username: 'nkdasgog.mayapur@gmail.com',
+    pass: COUNCIL_STARTER_PASS,
+    dot: 'bg-indigo-600',
+  },
+  {
+    label: 'Aditya Chauhan (President)',
+    role: 'Core Council',
+    username: 'adityachauhan6621@gmail.com',
+    pass: COUNCIL_STARTER_PASS,
+    dot: 'bg-amber-500',
+  },
+  {
+    label: 'Brajika Poudel (Treasurer)',
+    role: 'Core Council',
+    username: 'brajikap@gmail.com',
+    pass: COUNCIL_STARTER_PASS,
+    dot: 'bg-amber-500',
+  },
+  {
+    label: "Sushmita Ma'am",
+    role: 'GS Control',
+    username: 'sushmita',
+    pass: 'admin123',
+    dot: 'bg-violet-600',
+  },
+  {
+    label: 'Vidhi Bathija (Media)',
+    role: 'Media',
+    username: 'vidhi.bathija_mba.h26@gla.ac.in',
+    pass: COUNCIL_STARTER_PASS,
+    dot: 'bg-rose-500',
+  },
+  {
+    label: 'Bansham Gupta (Ops)',
+    role: 'Operations',
+    username: 'bansham.gupta_bba.ms26@gla.ac.in',
+    pass: COUNCIL_STARTER_PASS,
+    dot: 'bg-sky-500',
+  },
 ];
 
 export default function AuthScreen({ onAuthenticated }) {
@@ -50,13 +88,13 @@ export default function AuthScreen({ onAuthenticated }) {
       {/* Left: Crisp Architectural Product Preview */}
       <div className="lg:w-[52%] bg-white border-b lg:border-b-0 lg:border-r border-zinc-200 p-8 sm:p-12 lg:p-16 flex flex-col justify-between">
         <div>
-          <div className="flex items-center gap-2.5 mb-12">
+          <div className="flex items-center gap-2.5 mb-10">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
               <CalendarDays className="w-4 h-4" />
             </div>
             <span className="font-display font-bold text-base text-zinc-950">CouncilFlow</span>
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600">
-              Firebase Live Sync
+              NHRDN Mathura 2026
             </span>
           </div>
 
@@ -65,14 +103,14 @@ export default function AuthScreen({ onAuthenticated }) {
             <span className="text-indigo-600 block mt-1">Clear accountability.</span>
           </h1>
           <p className="text-sm text-zinc-500 mt-4 max-w-md leading-relaxed">
-            Media, Operations (Tech), and Core Council stay on the exact same page — with scoped edit
-            permissions and a live GS Control audit log.
+            Media &amp; Branding, Operations &amp; Tech, and Core Council stay on the exact same page —
+            with pre-assigned council permissions and a live GS Control audit log.
           </p>
 
           {/* Realistic Mini Calendar & Audit Preview */}
-          <div className="mt-10 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 max-w-lg shadow-xs">
+          <div className="mt-9 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 max-w-lg shadow-xs">
             <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-zinc-200/80">
-              <span className="text-xs font-semibold text-zinc-900">Today&apos;s Shared Schedule</span>
+              <span className="text-xs font-semibold text-zinc-900">NHRDN 2026 Shared Schedule</span>
               <div className="flex items-center gap-2 text-[11px] font-medium">
                 <span className="inline-flex items-center gap-1 text-rose-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Media
@@ -89,8 +127,8 @@ export default function AuthScreen({ onAuthenticated }) {
             <div className="space-y-2">
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-zinc-200/80 border-l-[3px] border-l-rose-500">
                 <div>
-                  <p className="text-xs font-semibold text-zinc-900">TechFest Teaser Reel Shoot</p>
-                  <p className="text-[11px] text-zinc-500">14:00 – 16:30 • Kabir Nair</p>
+                  <p className="text-xs font-semibold text-zinc-900">Media &amp; Branding Launch Reel</p>
+                  <p className="text-[11px] text-zinc-500">14:00 – 16:00 • Vidhi Bathija</p>
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-50 text-rose-700">
                   Media
@@ -99,8 +137,8 @@ export default function AuthScreen({ onAuthenticated }) {
 
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-zinc-200/80 border-l-[3px] border-l-sky-500">
                 <div>
-                  <p className="text-xs font-semibold text-zinc-900">QR Check-in &amp; Portal Deploy</p>
-                  <p className="text-[11px] text-zinc-500">17:00 – 19:00 • Devansh Patel</p>
+                  <p className="text-xs font-semibold text-zinc-900">NHRDN Tech &amp; Ops Portal Sync</p>
+                  <p className="text-[11px] text-zinc-500">17:00 – 18:30 • Bansham Gupta</p>
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-700">
                   Operations
@@ -110,7 +148,7 @@ export default function AuthScreen({ onAuthenticated }) {
               <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-900">
                 <span className="inline-flex items-center gap-1.5 font-medium">
                   <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                  GS Control: Logged edit by Aarav Sharma
+                  GS Control: Nrisingha Kripa Das &amp; Sushmita Ma&apos;am
                 </span>
                 <span className="text-indigo-600 font-mono text-[10px]">Live</span>
               </div>
@@ -121,10 +159,10 @@ export default function AuthScreen({ onAuthenticated }) {
         {/* Quick-Fill Role Bar */}
         <div className="mt-10 pt-6 border-t border-zinc-200/80">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-            Quick-fill role credentials
+            Quick-fill council credentials (starter pass: <code className="font-mono text-zinc-600">nhrdn2026</code>)
           </p>
           <div className="flex flex-wrap gap-2">
-            {DEMO_ACCOUNTS.map((acc) => (
+            {QUICK_ACCOUNTS.map((acc) => (
               <button
                 key={acc.username}
                 type="button"
@@ -157,12 +195,12 @@ export default function AuthScreen({ onAuthenticated }) {
 
           <div className="mb-7">
             <h2 className="font-display text-2xl font-bold text-zinc-950">
-              {mode === 'signin' ? 'Sign in' : 'Create your ID'}
+              {mode === 'signin' ? 'Sign in' : 'Activate / Create ID'}
             </h2>
             <p className="text-xs text-zinc-500 mt-1">
               {mode === 'signin'
-                ? 'Use your team ID (or email) and password to access the calendar.'
-                : 'New accounts are tracked in the team accountability log.'}
+                ? 'Council members: sign in with your official Email ID (starter password: nhrdn2026).'
+                : 'Your role & capabilities are auto-assigned from the NHRDN 2026 directory.'}
             </p>
           </div>
 
@@ -210,7 +248,7 @@ export default function AuthScreen({ onAuthenticated }) {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Ananya Roy"
+                      placeholder="Full Name"
                       className="w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600"
                     />
                   </div>
@@ -220,7 +258,7 @@ export default function AuthScreen({ onAuthenticated }) {
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Video Editor"
+                      placeholder="Auto if in directory"
                       className="w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600"
                     />
                   </div>
@@ -251,13 +289,13 @@ export default function AuthScreen({ onAuthenticated }) {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">User ID or Email</label>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">Email ID</label>
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="sushmita or name@college.edu"
+                placeholder="name@gla.ac.in or Gmail ID"
                 className="w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600"
               />
             </div>

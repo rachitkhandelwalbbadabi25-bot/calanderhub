@@ -19,59 +19,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from './firebase';
-
-export const DEMO_PRESETS = {
-  sushmita: {
-    username: 'sushmita',
-    pass: 'admin123',
-    name: "Sushmita Ma'am",
-    title: 'Faculty Advisor',
-    role: 'gs_control',
-    department: 'Core Council',
-    gsControl: true,
-    avatarColor: '#7C3AED',
-  },
-  gs_head: {
-    username: 'gs_head',
-    pass: 'gs123',
-    name: 'Aarav Sharma',
-    title: 'General Secretary',
-    role: 'gs_control',
-    department: 'Core Council',
-    gsControl: true,
-    avatarColor: '#4F46E5',
-  },
-  core_council: {
-    username: 'core_council',
-    pass: 'core123',
-    name: 'Riya Verma',
-    title: 'Core Council Lead',
-    role: 'core_council',
-    department: 'Core Council',
-    gsControl: false,
-    avatarColor: '#D97706',
-  },
-  media_user: {
-    username: 'media_user',
-    pass: 'media123',
-    name: 'Kabir Nair',
-    title: 'Media & Design Lead',
-    role: 'media',
-    department: 'Media',
-    gsControl: false,
-    avatarColor: '#E11D48',
-  },
-  ops_user: {
-    username: 'ops_user',
-    pass: 'ops123',
-    name: 'Devansh Patel',
-    title: 'Tech & Operations Lead',
-    role: 'operations',
-    department: 'Operations',
-    gsControl: false,
-    avatarColor: '#0284C7',
-  },
-};
+import { findRosterMember, COUNCIL_STARTER_PASS } from './roster';
 
 export function toAuthEmail(input) {
   const clean = String(input || '').trim().toLowerCase();
@@ -91,64 +39,40 @@ async function seedInitialEventsIfEmpty(user) {
 
   const seedEvents = [
     {
-      title: 'Annual TechFest Teaser Reel Shoot',
-      department: 'Media',
-      date: getDateOffset(0),
-      startTime: '14:00',
-      endTime: '16:30',
-      status: 'In Progress',
-      priority: 'High',
-      assignee: 'Kabir Nair',
-      location: 'Main Auditorium & Quad',
-      description: 'Shoot B-roll, student reactions, and core team intro clips for the Instagram launch reel.',
-    },
-    {
-      title: 'Registration Portal & QR Check-in Deploy',
+      title: 'NHRDN Tech & Ops Portal Sync',
       department: 'Operations',
       date: getDateOffset(0),
       startTime: '17:00',
-      endTime: '19:00',
-      status: 'Scheduled',
+      endTime: '18:30',
+      status: 'In Progress',
       priority: 'High',
-      assignee: 'Devansh Patel',
-      location: 'Tech Lab 204',
-      description: 'Deploy v2 ticketing backend, load-test QR scanner app, and verify webhook alerts.',
+      assignee: 'Bansham Gupta & Rachit Khandelwal',
+      location: 'Tech Lab',
+      description: 'Verify NHRDN Mathura Chapter portal deployment and member access.',
     },
     {
-      title: 'Core Council Budget & Sponsor Sign-off',
+      title: 'Media & Branding Launch Reel',
+      department: 'Media',
+      date: getDateOffset(0),
+      startTime: '14:00',
+      endTime: '16:00',
+      status: 'Scheduled',
+      priority: 'High',
+      assignee: 'Vidhi Bathija & Krishna Gupta',
+      location: 'Campus Quad',
+      description: 'Shoot council intro reel and branding assets for NHRDN Mathura Chapter.',
+    },
+    {
+      title: 'Core Council Executive Alignment',
       department: 'Core Council',
       date: getDateOffset(1),
       startTime: '11:00',
       endTime: '12:30',
       status: 'Scheduled',
       priority: 'Critical',
-      assignee: "Sushmita Ma'am & Aarav Sharma",
+      assignee: 'Aditya Chauhan, Nrisingha Kripa Das & Brajika Poudel',
       location: 'Conference Room A',
-      description: 'Final review of stage production budget, sponsor deliverables, and faculty approvals.',
-    },
-    {
-      title: 'Speaker Lineup Carousel & Poster Pack',
-      department: 'Media',
-      date: getDateOffset(2),
-      startTime: '10:30',
-      endTime: '13:00',
-      status: 'Scheduled',
-      priority: 'Medium',
-      assignee: 'Kabir Nair',
-      location: 'Design Studio',
-      description: 'Finalize 6 speaker announcement graphics, LinkedIn banners, and campus standee print files.',
-    },
-    {
-      title: 'Stage Audio, Mic & LED Wall Stress Test',
-      department: 'Operations',
-      date: getDateOffset(3),
-      startTime: '15:00',
-      endTime: '18:00',
-      status: 'Scheduled',
-      priority: 'High',
-      assignee: 'Devansh Patel',
-      location: 'Main Auditorium',
-      description: 'Test wireless mic frequencies, HDMI backup switcher, and live stream RTMP feed.',
+      description: 'Monthly roadmap, treasury sign-off, and faculty review with Sushmita Ma\'am.',
     },
   ];
 
@@ -183,32 +107,37 @@ export async function loginWithId(usernameOrEmail, password) {
   }
   const email = toAuthEmail(usernameOrEmail);
   const shortId = email.split('@')[0];
+  const rosterEntry = findRosterMember(usernameOrEmail) || findRosterMember(email);
 
   let cred;
   try {
     cred = await signInWithEmailAndPassword(auth, email, password);
   } catch (err) {
-    // Auto-provision known demo preset on first login in a fresh Firebase project
-    const preset = DEMO_PRESETS[shortId];
-    if (preset && password === preset.pass) {
+    // Auto-provision official NHRDN roster members on first login with starter password (or admin123 for Sushmita Ma'am)
+    const isValidStarter =
+      rosterEntry &&
+      (password === COUNCIL_STARTER_PASS || (rosterEntry.email === 'sushmita@councilflow.app' && password === 'admin123'));
+
+    if (isValidStarter) {
       cred = await createUserWithEmailAndPassword(auth, email, password);
       const profile = {
         id: cred.user.uid,
-        username: preset.username,
+        username: shortId,
         email,
-        name: preset.name,
-        title: preset.title,
-        role: preset.role,
-        department: preset.department,
-        gsControl: preset.gsControl,
-        avatarColor: preset.avatarColor,
+        name: rosterEntry.name,
+        title: rosterEntry.title,
+        teamCategory: rosterEntry.teamCategory,
+        role: rosterEntry.role,
+        department: rosterEntry.department,
+        gsControl: rosterEntry.gsControl,
+        avatarColor: rosterEntry.avatarColor,
         createdAt: new Date().toISOString(),
       };
       await setDoc(doc(db, 'users', cred.user.uid), profile);
       await seedInitialEventsIfEmpty(profile);
       return profile;
     }
-    throw new Error(err.message || 'Invalid User ID or password.');
+    throw new Error(err.message || 'Invalid Email / User ID or password.');
   }
 
   const userSnap = await getDoc(doc(db, 'users', cred.user.uid));
@@ -216,21 +145,21 @@ export async function loginWithId(usernameOrEmail, password) {
     return { id: cred.user.uid, ...userSnap.data() };
   }
 
-  const preset = DEMO_PRESETS[shortId];
-  const fallbackProfile = {
+  const profile = {
     id: cred.user.uid,
     username: shortId,
     email,
-    name: preset?.name || shortId,
-    title: preset?.title || 'Team Member',
-    role: preset?.role || 'media',
-    department: preset?.department || 'Media',
-    gsControl: preset?.gsControl || false,
-    avatarColor: preset?.avatarColor || '#4F46E5',
+    name: rosterEntry?.name || shortId,
+    title: rosterEntry?.title || 'Team Member',
+    teamCategory: rosterEntry?.teamCategory || 'Media',
+    role: rosterEntry?.role || 'media',
+    department: rosterEntry?.department || 'Media',
+    gsControl: rosterEntry?.gsControl || false,
+    avatarColor: rosterEntry?.avatarColor || '#4F46E5',
     createdAt: new Date().toISOString(),
   };
-  await setDoc(doc(db, 'users', cred.user.uid), fallbackProfile);
-  return fallbackProfile;
+  await setDoc(doc(db, 'users', cred.user.uid), profile);
+  return profile;
 }
 
 export async function signUpMember({ username, password, name, department, title }) {
@@ -239,20 +168,23 @@ export async function signUpMember({ username, password, name, department, title
   }
   const email = toAuthEmail(username);
   const cleanUsername = email.split('@')[0];
-  const chosenDept = department === 'Operations' ? 'Operations' : 'Media';
-  const assignedRole = chosenDept === 'Operations' ? 'operations' : 'media';
+  const rosterEntry = findRosterMember(username) || findRosterMember(email);
+
+  const chosenDept = rosterEntry?.department || (department === 'Operations' ? 'Operations' : 'Media');
+  const assignedRole = rosterEntry?.role || (chosenDept === 'Operations' ? 'operations' : 'media');
 
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const profile = {
     id: cred.user.uid,
     username: cleanUsername,
     email,
-    name: String(name).trim(),
-    title: title ? String(title).trim() : `${chosenDept} Member`,
+    name: rosterEntry?.name || String(name).trim(),
+    title: rosterEntry?.title || (title ? String(title).trim() : `${chosenDept} Member`),
+    teamCategory: rosterEntry?.teamCategory || chosenDept,
     role: assignedRole,
     department: chosenDept,
-    gsControl: false,
-    avatarColor: chosenDept === 'Operations' ? '#0284C7' : '#E11D48',
+    gsControl: rosterEntry?.gsControl || false,
+    avatarColor: rosterEntry?.avatarColor || (chosenDept === 'Operations' ? '#0284C7' : '#E11D48'),
     createdAt: new Date().toISOString(),
   };
 
@@ -265,11 +197,12 @@ export async function signUpMember({ username, password, name, department, title
     action: 'SIGNED_UP',
     targetType: 'Account',
     targetId: profile.id,
-    targetTitle: `${profile.name} (@${profile.username})`,
+    targetTitle: `${profile.name} (${profile.email})`,
     department: profile.department,
-    details: `Registered new ${profile.department} account.`,
+    details: `Activated ${profile.title} account (${profile.teamCategory}).`,
   });
 
+  await seedInitialEventsIfEmpty(profile);
   return profile;
 }
 
@@ -291,16 +224,18 @@ export function subscribeToAuth(callback) {
     if (snap.exists()) {
       callback({ id: fbUser.uid, ...snap.data() });
     } else {
+      const rosterEntry = findRosterMember(fbUser.email);
       callback({
         id: fbUser.uid,
         username: (fbUser.email || '').split('@')[0],
         email: fbUser.email,
-        name: fbUser.email?.split('@')[0] || 'Member',
-        title: 'Team Member',
-        role: 'media',
-        department: 'Media',
-        gsControl: false,
-        avatarColor: '#4F46E5',
+        name: rosterEntry?.name || fbUser.email?.split('@')[0] || 'Member',
+        title: rosterEntry?.title || 'Team Member',
+        teamCategory: rosterEntry?.teamCategory || 'Media',
+        role: rosterEntry?.role || 'media',
+        department: rosterEntry?.department || 'Media',
+        gsControl: rosterEntry?.gsControl || false,
+        avatarColor: rosterEntry?.avatarColor || '#4F46E5',
       });
     }
   });
