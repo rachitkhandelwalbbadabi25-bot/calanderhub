@@ -221,9 +221,13 @@ export async function loginWithGoogle() {
   const rosterEntry = findRosterMember(email);
 
   const userRef = doc(db, 'users', fbUser.uid);
-  const userSnap = await getDoc(userRef);
-  if (userSnap.exists()) {
-    return { id: fbUser.uid, ...userSnap.data() };
+  try {
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      return { id: fbUser.uid, ...userSnap.data() };
+    }
+  } catch (err) {
+    console.error('Firestore read user failed:', err);
   }
 
   const profile = {
@@ -240,20 +244,24 @@ export async function loginWithGoogle() {
     createdAt: new Date().toISOString(),
   };
 
-  await setDoc(userRef, profile);
-  await addDoc(collection(db, 'auditLogs'), {
-    timestamp: new Date().toISOString(),
-    actorId: profile.id,
-    actorName: profile.name,
-    actorRole: profile.role,
-    action: 'SIGNED_UP',
-    targetType: 'Account',
-    targetId: profile.id,
-    targetTitle: `${profile.name} (${profile.email})`,
-    department: profile.department,
-    details: `Signed in via Google (${profile.title}).`,
-  });
-  await seedInitialEventsIfEmpty(profile);
+  try {
+    await setDoc(userRef, profile);
+    await addDoc(collection(db, 'auditLogs'), {
+      timestamp: new Date().toISOString(),
+      actorId: profile.id,
+      actorName: profile.name,
+      actorRole: profile.role,
+      action: 'SIGNED_UP',
+      targetType: 'Account',
+      targetId: profile.id,
+      targetTitle: `${profile.name} (${profile.email})`,
+      department: profile.department,
+      details: `Signed in via Google (${profile.title}).`,
+    });
+    await seedInitialEventsIfEmpty(profile);
+  } catch (err) {
+    console.error('Firestore write user/seed failed:', err);
+  }
   return profile;
 }
 
@@ -271,33 +279,46 @@ export function subscribeToAuth(callback) {
       callback(null);
       return;
     }
-    const snap = await getDoc(doc(db, 'users', fbUser.uid));
-    if (snap.exists()) {
-      callback({ id: fbUser.uid, ...snap.data() });
-    } else {
-      const rosterEntry = findRosterMember(fbUser.email);
-      callback({
-        id: fbUser.uid,
-        username: (fbUser.email || '').split('@')[0],
-        email: fbUser.email,
-        name: rosterEntry?.name || fbUser.email?.split('@')[0] || 'Member',
-        title: rosterEntry?.title || 'Team Member',
-        teamCategory: rosterEntry?.teamCategory || 'Media',
-        role: rosterEntry?.role || 'media',
-        department: rosterEntry?.department || 'Media',
-        gsControl: rosterEntry?.gsControl || false,
-        avatarColor: rosterEntry?.avatarColor || '#4F46E5',
-      });
+    const rosterEntry = findRosterMember(fbUser.email);
+    const fallbackProfile = {
+      id: fbUser.uid,
+      username: (fbUser.email || '').split('@')[0],
+      email: fbUser.email,
+      name: rosterEntry?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Member',
+      title: rosterEntry?.title || 'Team Member',
+      teamCategory: rosterEntry?.teamCategory || 'Media',
+      role: rosterEntry?.role || 'media',
+      department: rosterEntry?.department || 'Media',
+      gsControl: rosterEntry?.gsControl || false,
+      avatarColor: rosterEntry?.avatarColor || '#4F46E5',
+    };
+    try {
+      const snap = await getDoc(doc(db, 'users', fbUser.uid));
+      if (snap.exists()) {
+        callback({ id: fbUser.uid, ...snap.data() });
+      } else {
+        callback(fallbackProfile);
+      }
+    } catch (err) {
+      console.error('Firestore user profile fetch failed:', err);
+      callback(fallbackProfile);
     }
   });
 }
 
-export function subscribeToEvents(callback) {
+export function subscribeToEvents(callback, onError) {
   if (!db) return () => {};
-  return onSnapshot(collection(db, 'events'), (snapshot) => {
-    const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    callback(items);
-  });
+  return onSnapshot(
+    collection(db, 'events'),
+    (snapshot) => {
+      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback(items);
+    },
+    (err) => {
+      console.error('Firestore events error:', err);
+      onError?.(err.message);
+    }
+  );
 }
 
 export async function createCalendarEvent(formData, user) {

@@ -102,6 +102,7 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const [events, setEvents] = useState([]);
+  const [dbError, setDbError] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,9 +122,16 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setEvents([]);
+      setDbError('');
       return;
     }
-    const unsub = subscribeToEvents((items) => setEvents(items));
+    const unsub = subscribeToEvents(
+      (items) => {
+        setDbError('');
+        setEvents(items);
+      },
+      (msg) => setDbError(msg)
+    );
     return () => unsub();
   }, [user]);
 
@@ -401,7 +409,12 @@ export default function App() {
               </div>
             </header>
 
-            <main className="p-4 sm:p-6 flex-1">
+            <main className="p-4 sm:p-6 flex-1 space-y-4">
+              {dbError && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-900">
+                  <strong>Firestore Notice:</strong> {dbError} — Make sure <strong>Firestore Database</strong> is created in Firebase Console and <strong>firestore.rules</strong> are published.
+                </div>
+              )}
               <CalendarGrid
                 viewMode={viewMode}
                 currentDate={currentDate}
