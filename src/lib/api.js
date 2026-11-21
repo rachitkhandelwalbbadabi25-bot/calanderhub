@@ -1,6 +1,8 @@
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -202,6 +204,55 @@ export async function signUpMember({ username, password, name, department, title
     details: `Activated ${profile.title} account (${profile.teamCategory}).`,
   });
 
+  await seedInitialEventsIfEmpty(profile);
+  return profile;
+}
+
+export async function loginWithGoogle() {
+  if (!isFirebaseConfigured) {
+    throw new Error('Firebase is not configured. Add VITE_FIREBASE_* keys to .env.local or Vercel.');
+  }
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const cred = await signInWithPopup(auth, provider);
+  const fbUser = cred.user;
+  const email = (fbUser.email || '').toLowerCase();
+  const shortId = email.split('@')[0];
+  const rosterEntry = findRosterMember(email);
+
+  const userRef = doc(db, 'users', fbUser.uid);
+  const userSnap = await getDoc(userRef);
+  if (userSnap.exists()) {
+    return { id: fbUser.uid, ...userSnap.data() };
+  }
+
+  const profile = {
+    id: fbUser.uid,
+    username: shortId,
+    email,
+    name: rosterEntry?.name || fbUser.displayName || shortId,
+    title: rosterEntry?.title || 'Team Member',
+    teamCategory: rosterEntry?.teamCategory || 'Media',
+    role: rosterEntry?.role || 'media',
+    department: rosterEntry?.department || 'Media',
+    gsControl: rosterEntry?.gsControl || false,
+    avatarColor: rosterEntry?.avatarColor || '#4F46E5',
+    createdAt: new Date().toISOString(),
+  };
+
+  await setDoc(userRef, profile);
+  await addDoc(collection(db, 'auditLogs'), {
+    timestamp: new Date().toISOString(),
+    actorId: profile.id,
+    actorName: profile.name,
+    actorRole: profile.role,
+    action: 'SIGNED_UP',
+    targetType: 'Account',
+    targetId: profile.id,
+    targetTitle: `${profile.name} (${profile.email})`,
+    department: profile.department,
+    details: `Signed in via Google (${profile.title}).`,
+  });
   await seedInitialEventsIfEmpty(profile);
   return profile;
 }
