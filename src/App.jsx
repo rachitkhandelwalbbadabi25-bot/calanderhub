@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import {
   CalendarDays,
   ChevronLeft,
@@ -8,6 +8,8 @@ import {
   ShieldCheck,
   LogOut,
   Users,
+  Pencil,
+  X,
 } from 'lucide-react';
 import {
   subscribeToAuth,
@@ -15,6 +17,7 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
+  updateOwnProfile,
   logoutUser,
   DEPARTMENT_META,
   ROLE_LABELS,
@@ -23,8 +26,9 @@ import {
 } from './lib/api';
 import AuthScreen from './components/AuthScreen';
 import CalendarGrid from './components/CalendarGrid';
-import EventModal from './components/EventModal';
-import GSControlPanel from './components/GSControlPanel';
+
+const EventModal = lazy(() => import('./components/EventModal'));
+const GSControlPanel = lazy(() => import('./components/GSControlPanel'));
 
 function MiniMonthPicker({ currentDate, onSelectDate }) {
   const year = currentDate.getFullYear();
@@ -110,6 +114,9 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [quickAddDate, setQuickAddDate] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', title: '', department: 'Operations' });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToAuth((u) => {
@@ -311,18 +318,33 @@ export default function App() {
         </div>
 
         <div className="p-3 border-t border-zinc-200 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              setProfileForm({
+                name: user.name || '',
+                title: user.title || '',
+                department: user.department === 'Media' ? 'Media' : 'Operations',
+              });
+              setProfileOpen(true);
+            }}
+            title="Edit your post & team"
+            className="flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-lg p-1 -m-1 hover:bg-zinc-100 transition cursor-pointer"
+          >
             <span
               className="w-7 h-7 rounded-full text-white font-bold text-[11px] flex items-center justify-center shrink-0"
               style={{ backgroundColor: user.avatarColor || '#4F46E5' }}
             >
               {(user.name || 'U').slice(0, 2).toUpperCase()}
             </span>
-            <div className="min-w-0 leading-tight">
+            <div className="min-w-0 leading-tight flex-1">
               <p className="text-xs font-semibold text-zinc-900 truncate">{user.name}</p>
-              <p className="text-[10px] text-zinc-500 truncate">{ROLE_LABELS[user.role] || user.role}</p>
+              <p className="text-[10px] text-zinc-500 truncate">
+                {user.title || ROLE_LABELS[user.role] || user.role}
+              </p>
             </div>
-          </div>
+            <Pencil className="w-3 h-3 text-zinc-400 shrink-0" />
+          </button>
           <button
             type="button"
             onClick={handleLogout}
@@ -337,7 +359,9 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0">
         {activeTab === 'gs_control' && gsAccess ? (
           <main className="p-4 sm:p-6 max-w-6xl w-full mx-auto">
-            <GSControlPanel currentUser={user} events={events} />
+            <Suspense fallback={<div className="p-8 text-xs text-zinc-500">Loading GS Control...</div>}>
+              <GSControlPanel currentUser={user} events={events} />
+            </Suspense>
           </main>
         ) : (
           <>
@@ -436,15 +460,116 @@ export default function App() {
         )}
       </div>
 
-      <EventModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        event={selectedEvent}
-        defaultDate={quickAddDate}
-        currentUser={user}
-        onSave={handleSaveEvent}
-        onDelete={handleDeleteEvent}
-      />
+      <Suspense fallback={null}>
+        <EventModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          event={selectedEvent}
+          defaultDate={quickAddDate}
+          currentUser={user}
+          onSave={handleSaveEvent}
+          onDelete={handleDeleteEvent}
+        />
+      </Suspense>
+
+      {profileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/30 backdrop-blur-[2px]">
+          <div className="w-full max-w-sm rounded-2xl bg-white border border-zinc-200 shadow-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-display text-base font-bold text-zinc-950">My Post &amp; Team</h3>
+                <p className="text-[11px] text-zinc-500">Update your designation and active track.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSavingProfile(true);
+                try {
+                  const updated = await updateOwnProfile(user, profileForm);
+                  setUser(updated);
+                  setProfileOpen(false);
+                } finally {
+                  setSavingProfile(false);
+                }
+              }}
+              className="space-y-3.5"
+            >
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-300 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 mb-1">Post / Designation</label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.title}
+                  onChange={(e) => setProfileForm({ ...profileForm, title: e.target.value })}
+                  placeholder="e.g. Tech Team, Joint Secretary, Media Lead"
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-300 text-sm"
+                />
+              </div>
+
+              {user.role !== 'gs_control' && user.role !== 'core_council' && (
+                <div>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">Team Track</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Operations', 'Media'].map((dept) => (
+                      <button
+                        key={dept}
+                        type="button"
+                        onClick={() => setProfileForm({ ...profileForm, department: dept })}
+                        className={`py-2 px-3 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+                          profileForm.department === dept
+                            ? dept === 'Media'
+                              ? 'border-rose-500 bg-rose-50 text-rose-700'
+                              : 'border-sky-500 bg-sky-50 text-sky-700'
+                            : 'border-zinc-200 bg-white text-zinc-600'
+                        }`}
+                      >
+                        {dept === 'Operations' ? 'Operations (Tech)' : 'Media'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(false)}
+                  className="px-3.5 py-2 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
+                >
+                  {savingProfile ? 'Saving...' : 'Save Post'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

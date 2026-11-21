@@ -224,7 +224,22 @@ export async function loginWithGoogle() {
   try {
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
-      return { id: fbUser.uid, ...userSnap.data() };
+      const existing = { id: fbUser.uid, ...userSnap.data() };
+      if (rosterEntry && existing.role !== rosterEntry.role) {
+        const synced = {
+          ...existing,
+          name: rosterEntry.name,
+          title: rosterEntry.title,
+          teamCategory: rosterEntry.teamCategory,
+          role: rosterEntry.role,
+          department: rosterEntry.department,
+          gsControl: rosterEntry.gsControl,
+          avatarColor: rosterEntry.avatarColor,
+        };
+        await setDoc(userRef, synced, { merge: true });
+        return synced;
+      }
+      return existing;
     }
   } catch (err) {
     console.error('Firestore read user failed:', err);
@@ -280,30 +295,65 @@ export function subscribeToAuth(callback) {
       return;
     }
     const rosterEntry = findRosterMember(fbUser.email);
-    const fallbackProfile = {
+    const immediateProfile = {
       id: fbUser.uid,
       username: (fbUser.email || '').split('@')[0],
       email: fbUser.email,
       name: rosterEntry?.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Member',
       title: rosterEntry?.title || 'Team Member',
-      teamCategory: rosterEntry?.teamCategory || 'Media',
-      role: rosterEntry?.role || 'media',
-      department: rosterEntry?.department || 'Media',
+      teamCategory: rosterEntry?.teamCategory || 'Operations',
+      role: rosterEntry?.role || 'operations',
+      department: rosterEntry?.department || 'Operations',
       gsControl: rosterEntry?.gsControl || false,
-      avatarColor: rosterEntry?.avatarColor || '#4F46E5',
+      avatarColor: rosterEntry?.avatarColor || '#0284C7',
     };
+    // Deliver immediately so workspace renders in 0ms without waiting on Firestore roundtrip
+    callback(immediateProfile);
+
     try {
-      const snap = await getDoc(doc(db, 'users', fbUser.uid));
+      const userRef = doc(db, 'users', fbUser.uid);
+      const snap = await getDoc(userRef);
       if (snap.exists()) {
-        callback({ id: fbUser.uid, ...snap.data() });
-      } else {
-        callback(fallbackProfile);
+        const data = snap.data();
+        if (rosterEntry && data.role !== rosterEntry.role) {
+          const synced = { ...data, ...immediateProfile };
+          await setDoc(userRef, synced, { merge: true });
+          callback(synced);
+        } else {
+          callback({ id: fbUser.uid, ...data });
+        }
       }
     } catch (err) {
-      console.error('Firestore user profile fetch failed:', err);
-      callback(fallbackProfile);
+      console.error('Firestore user profile sync failed:', err);
     }
   });
+}
+
+export async function updateOwnProfile(currentUser, { name, title, department }) {
+  const cleanDept = department === 'Media' ? 'Media' : 'Operations';
+  const nextRole =
+    currentUser.role === 'gs_control' || currentUser.role === 'core_council'
+      ? currentUser.role
+      : cleanDept === 'Media'
+        ? 'media'
+        : 'operations';
+
+  const updates = {
+    name: String(name || currentUser.name).trim(),
+    title: String(title || currentUser.title).trim(),
+    department:
+      currentUser.role === 'gs_control' || currentUser.role === 'core_council'
+        ? currentUser.department
+        : cleanDept,
+    teamCategory: cleanDept === 'Media' ? 'Media & Branding' : 'Operations & Tech',
+    role: nextRole,
+    avatarColor: cleanDept === 'Media' ? '#E11D48' : '#0284C7',
+  };
+
+  if (db) {
+    await setDoc(doc(db, 'users', currentUser.id), updates, { merge: true });
+  }
+  return { ...currentUser, ...updates };
 }
 
 export function subscribeToEvents(callback, onError) {

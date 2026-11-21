@@ -284,6 +284,7 @@ export const COUNCIL_ROSTER = [
     course: 'BBA DA&BI, 2nd Year (Sec B)',
     phone: '7060819185',
     email: 'rachit.khandelwal_bba.dabi25@gla.ac.in',
+    aliases: ['rrachitkhandelwal8@gmail.com'],
     role: 'operations',
     department: 'Operations',
     gsControl: false,
