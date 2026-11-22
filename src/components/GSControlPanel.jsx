@@ -1,74 +1,84 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ShieldCheck, Download, Search } from 'lucide-react';
 import {
-  subscribeToGSReport,
   updateMemberPermissions,
   DEPARTMENT_META,
   ROLE_LABELS,
 } from '../lib/api';
 import { COUNCIL_ROSTER } from '../lib/roster';
 
-export default function GSControlPanel({ currentUser, events = [] }) {
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function GSControlPanel({
+  currentUser,
+  events = [],
+  auditLogs = [],
+  users = [],
+  onOptimisticUserUpdate,
+}) {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
   const [actionFilter, setActionFilter] = useState('All');
-  const [updatingUserId, setUpdatingUserId] = useState(null);
-
-  useEffect(() => {
-    const unsub = subscribeToGSReport(({ auditLogs: logs, users: members }) => {
-      setAuditLogs(logs);
-      setUsers(members);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
 
   async function handleRoleChange(targetUser, newRole) {
-    setUpdatingUserId(targetUser.id);
     setError('');
+    const nextDept =
+      newRole === 'core_council' || newRole === 'gs_control'
+        ? 'Core Council'
+        : newRole === 'media'
+          ? 'Media'
+          : 'Operations';
+    const updates = { role: newRole, gsControl: newRole === 'gs_control', department: nextDept };
+    onOptimisticUserUpdate?.(targetUser.id, updates);
+
     try {
-      await updateMemberPermissions(
-        targetUser,
-        { role: newRole, gsControl: newRole === 'gs_control' },
-        currentUser
-      );
+      await updateMemberPermissions(targetUser, { role: newRole, gsControl: newRole === 'gs_control' }, currentUser);
     } catch (err) {
       setError(err.message);
-    } finally {
-      setUpdatingUserId(null);
     }
   }
 
   async function handleToggleGS(targetUser) {
-    setUpdatingUserId(targetUser.id);
     setError('');
+    const nextGs = !targetUser.gsControl;
+    onOptimisticUserUpdate?.(targetUser.id, { gsControl: nextGs });
+
     try {
-      await updateMemberPermissions(
-        targetUser,
-        { gsControl: !targetUser.gsControl },
-        currentUser
-      );
+      await updateMemberPermissions(targetUser, { gsControl: nextGs }, currentUser);
     } catch (err) {
       setError(err.message);
-    } finally {
-      setUpdatingUserId(null);
     }
   }
 
-  const filteredLogs = auditLogs.filter((log) => {
-    if (deptFilter !== 'All' && log.department !== deptFilter) return false;
-    if (actionFilter !== 'All' && log.action !== actionFilter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const hay = `${log.actorName} ${log.targetTitle} ${log.details} ${log.department}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+  const filteredLogs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return auditLogs.filter((log) => {
+      if (deptFilter !== 'All' && log.department !== deptFilter) return false;
+      if (actionFilter !== 'All' && log.action !== actionFilter) return false;
+      if (q) {
+        const hay = `${log.actorName} ${log.targetTitle} ${log.details} ${log.department}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [auditLogs, deptFilter, actionFilter, search]);
+
+  const summary = useMemo(
+    () => ({
+      totalEvents: events.length,
+      mediaCount: events.filter((e) => e.department === 'Media').length,
+      opsCount: events.filter((e) => e.department === 'Operations').length,
+      completedCount: events.filter((e) => e.status === 'Completed').length,
+      activeCount: events.filter((e) => e.status === 'In Progress').length,
+      totalAuditEntries: auditLogs.length,
+      totalUsers: users.length,
+    }),
+    [events, auditLogs.length, users.length]
+  );
+
+  const activeEmailSet = useMemo(
+    () => new Set(users.map((u) => (u.email || '').toLowerCase())),
+    [users]
+  );
 
   function exportCSV() {
     const rows = [
@@ -95,26 +105,6 @@ export default function GSControlPanel({ currentUser, events = [] }) {
     URL.revokeObjectURL(url);
   }
 
-  if (loading) {
-    return (
-      <div className="rounded-xl bg-white border border-zinc-200 p-12 text-center text-xs text-zinc-500">
-        Connecting to live GS Control stream...
-      </div>
-    );
-  }
-
-  const summary = {
-    totalEvents: events.length,
-    mediaCount: events.filter((e) => e.department === 'Media').length,
-    opsCount: events.filter((e) => e.department === 'Operations').length,
-    completedCount: events.filter((e) => e.status === 'Completed').length,
-    activeCount: events.filter((e) => e.status === 'In Progress').length,
-    totalAuditEntries: auditLogs.length,
-    totalUsers: users.length,
-  };
-
-  const activeEmailSet = new Set(users.map((u) => (u.email || '').toLowerCase()));
-
   const actionColors = {
     CREATED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     UPDATED: 'bg-indigo-50 text-indigo-700 border-indigo-200',
@@ -126,13 +116,13 @@ export default function GSControlPanel({ currentUser, events = [] }) {
   return (
     <div className="space-y-5">
       {/* Crisp Executive Header */}
-      <div className="rounded-xl bg-white border border-zinc-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-xl bg-white border border-zinc-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 mb-1">
             <ShieldCheck className="w-3.5 h-3.5" />
-            GS Control &amp; Accountability Report (Live)
+            GS Control &amp; Accountability Report (Instant Live)
           </div>
-          <h2 className="font-display text-xl font-bold text-zinc-950">
+          <h2 className="font-display text-lg sm:text-xl font-bold text-zinc-950">
             Oversight Dashboard — {currentUser.name}
           </h2>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -142,7 +132,7 @@ export default function GSControlPanel({ currentUser, events = [] }) {
         <button
           type="button"
           onClick={exportCSV}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold transition cursor-pointer shrink-0"
         >
           <Download className="w-3.5 h-3.5" />
           Export CSV
@@ -156,7 +146,7 @@ export default function GSControlPanel({ currentUser, events = [] }) {
       )}
 
       {/* Tight Metric Tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl bg-white border border-zinc-200 p-4">
           <span className="text-[11px] font-semibold text-zinc-500">Total Events</span>
           <p className="text-2xl font-bold text-zinc-950 mt-1 tabular-nums">{summary.totalEvents}</p>
@@ -195,14 +185,14 @@ export default function GSControlPanel({ currentUser, events = [] }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search user or event..."
-                className="pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 text-xs bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                className="w-full sm:w-44 pl-8 pr-3 py-1.5 rounded-lg border border-zinc-200 text-xs bg-zinc-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
               />
             </div>
 
@@ -295,7 +285,7 @@ export default function GSControlPanel({ currentUser, events = [] }) {
         <div className="p-4 border-b border-zinc-200">
           <h3 className="font-display text-sm font-bold text-zinc-950">Activated Accounts &amp; Live Permissions</h3>
           <p className="text-xs text-zinc-500">
-            Adjust roles or GS Control access for members who have signed in.
+            Changes update instantly across the team.
           </p>
         </div>
 
@@ -328,7 +318,6 @@ export default function GSControlPanel({ currentUser, events = [] }) {
                   <td className="py-2.5 px-4 text-zinc-600">{u.title}</td>
                   <td className="py-2.5 px-4">
                     <select
-                      disabled={updatingUserId === u.id}
                       value={u.role}
                       onChange={(e) => handleRoleChange(u, e.target.value)}
                       className="px-2.5 py-1 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-800"
@@ -342,7 +331,6 @@ export default function GSControlPanel({ currentUser, events = [] }) {
                   <td className="py-2.5 px-4">
                     <button
                       type="button"
-                      disabled={updatingUserId === u.id}
                       onClick={() => handleToggleGS(u)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition cursor-pointer ${
                         u.gsControl || u.role === 'gs_control'

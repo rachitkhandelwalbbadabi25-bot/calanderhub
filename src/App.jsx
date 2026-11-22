@@ -14,6 +14,7 @@ import {
 import {
   subscribeToAuth,
   subscribeToEvents,
+  subscribeToGSReport,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
@@ -105,6 +106,8 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [events, setEvents] = useState([]);
+  const [gsAuditLogs, setGsAuditLogs] = useState([]);
+  const [gsUsers, setGsUsers] = useState([]);
   const [deptFilter, setDeptFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,11 +127,27 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setEvents([]);
+      setGsAuditLogs([]);
+      setGsUsers([]);
       return;
     }
-    const unsub = subscribeToEvents((items) => setEvents(items));
-    return () => unsub();
+    const unsubEvents = subscribeToEvents((items) => setEvents(items));
+    let unsubGS = () => {};
+    if (hasGSControlAccess(user)) {
+      unsubGS = subscribeToGSReport(({ auditLogs, users }) => {
+        setGsAuditLogs(auditLogs);
+        setGsUsers(users);
+      });
+    }
+    return () => {
+      unsubEvents();
+      unsubGS();
+    };
   }, [user]);
+
+  function handleOptimisticUserUpdate(userId, updates) {
+    setGsUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...updates } : u)));
+  }
 
   async function handleLogout() {
     await logoutUser();
@@ -419,7 +438,13 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0">
         {activeTab === 'gs_control' && gsAccess ? (
           <main className="p-3.5 sm:p-6 max-w-6xl w-full mx-auto">
-            <GSControlPanel currentUser={user} events={events} />
+            <GSControlPanel
+              currentUser={user}
+              events={events}
+              auditLogs={gsAuditLogs}
+              users={gsUsers}
+              onOptimisticUserUpdate={handleOptimisticUserUpdate}
+            />
           </main>
         ) : (
           <>

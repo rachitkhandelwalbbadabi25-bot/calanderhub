@@ -460,15 +460,15 @@ export function subscribeToGSReport(callback) {
   let latestUsers = [];
 
   const unsubLogs = onSnapshot(
-    query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(200)),
+    query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(60)),
     (snap) => {
       latestLogs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      callback({ auditLogs: latestLogs, users: latestUsers });
+      callback({ auditLogs: latestLogs, users: latestUsers, ready: true });
     }
   );
   const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
     latestUsers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    callback({ auditLogs: latestLogs, users: latestUsers });
+    callback({ auditLogs: latestLogs, users: latestUsers, ready: true });
   });
 
   return () => {
